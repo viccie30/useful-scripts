@@ -1,0 +1,21 @@
+#!/bin/sh
+
+if [ $(id -u) -ne 0 ]; then
+	exec sudo "$0"
+fi
+
+sbuild_dists="unstable-amd64 unstable-arm64 focal-amd64"
+
+sbuild-update -udcr $sbuild_dists
+for dist in $sbuild_dists; do
+	if ! SESSION=$(schroot -c $dist-sbuild -b -d /); then
+		continue
+	fi
+	trap 'schroot -c "$SESSION" -e' EXIT
+	schroot -c "$SESSION" -r -d / -- sh -c 'for arch in amd64 i386 s390x powerpc arm64 armel armhf mips64el mipsel ppc64el; do dpkg --add-architecture $arch; done'
+	schroot -c "$SESSION" -r -d / -- apt-get -yy update
+	schroot -c "$SESSION" -r -d / -- apt-get -yy --download-only install \
+		aptitude cmake lintian debhelper
+	schroot -c "$SESSION" -e
+	trap - EXIT
+done

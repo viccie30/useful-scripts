@@ -1,0 +1,59 @@
+#!/bin/sh
+set -e
+
+[ $(id -u) -eq $(id -u manual-apt-updates) ]
+
+cd /var/lib/manual-apt-updates
+mkdir -p lto
+cd lto
+
+(
+    IFS="+ "
+    curl --fail --silent --show-error --location "https://api.ftp-master.debian.org/madison?package=$*&a=amd64&b=deb&s=unstable&S&f"
+) | jq --raw-output '
+    map(
+        .[].unstable |
+        to_entries |
+        .[-1] |
+        {
+            source: .value.source,
+            source_version: .value.source_version,
+            binary_version: .key,
+        }
+    ) |
+        group_by(.source) |
+        map(unique | if length > 1 then "Multiple versions for \(.[0].source): \([.[] | {source_version, binary_version}])\n" | stderr | empty else . end) | 
+        flatten |
+        map(
+            . as { source_version: $src, binary_version: $bin } |
+            . = if $bin | startswith($src) then [ .source, $src, ($bin | ltrimstr($src)) ] else "Source version of \(.source) is not a prefix of binary version: \({source_version: $src, binary_version: $bin})\n" | stderr | empty end |
+            @tsv) |
+            .[]' |
+    while read -r source version suffix; do
+        mkdir $source || {
+            echo "Directory for $source already exists, skipping"
+            continue
+        }
+        (
+            cd $source
+            spec="$source ($version$suffix+~lto)"
+            echo "Building $spec..."
+            sbuild \
+                --no-arch-all \
+                --binNMU-changelog="$(
+                    cat << _EOF
+$spec unstable; urgency=low, binary-only=yes
+
+  * Binary-only non-maintainer upload for amd64; no source changes.
+  * Build using LTO-enabled dpkg
+
+ -- Victor Westerhuis <victor@westerhu.is>  $(date -R)
+_EOF
+                )" \
+                --maintainer="Victor Westerhuis <victor@westerhu.is>" \
+                --uploader="Victor Westerhuis <victor@westerhu.is>" \
+                --profiles=noudeb \
+                --dist=unstable \
+                $source && echo "Successfully built $spec" || echo "Failed to build $spec"
+        )
+    done
