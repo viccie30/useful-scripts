@@ -4,7 +4,7 @@ if [ $(id -u) -ne 0 ]; then
 	exec sudo "$0"
 fi
 
-sbuild_dists="unstable-amd64 unstable-arm64 focal-amd64"
+sbuild_dists="unstable-amd64 unstable-i386 unstable-arm64 focal-amd64"
 
 sbuild-update -udcr $sbuild_dists
 for dist in $sbuild_dists; do
