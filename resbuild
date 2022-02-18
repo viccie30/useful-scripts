@@ -30,13 +30,14 @@ cd lto
             @tsv) |
             .[]' |
     while read -r source version suffix; do
-        mkdir $source || {
-            echo "Directory for $source already exists, skipping"
-            continue
-        }
+        mkdir -p $source
+        spec="$source ($version$suffix+~lto)"
         (
             cd $source
-            spec="$source ($version$suffix+~lto)"
+            if [ -e ${source}_$version$suffix+~lto_amd64.changes ]; then
+                echo "Changes file for $spec already exists, skipping"
+                continue
+            fi
             echo "Building $spec..."
             sbuild \
                 --no-arch-all \
@@ -54,6 +55,6 @@ _EOF
                 --uploader="Victor Westerhuis <victor@westerhu.is>" \
                 --profiles=noudeb \
                 --dist=unstable \
-                $source && echo "Successfully built $spec" || echo "Failed to build $spec"
+                ${source}_${version} && echo "Successfully built $spec" || echo "Failed to build $spec"
         )
     done
