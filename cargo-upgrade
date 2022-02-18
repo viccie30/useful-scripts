@@ -1,0 +1,8 @@
+#!/bin/sh
+
+~/.cargo/bin/cargo install-update --version &&
+	~/.cargo/bin/cargo install-update --all --git --downdate ||
+	{
+		~/.cargo/bin/cargo install --force cargo-update
+		~/.cargo/bin/cargo install-update --all --git --downdate
+	}
