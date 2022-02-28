@@ -31,14 +31,15 @@ cd lto
             .[]' |
     while read -r source version suffix; do
         mkdir -p $source
-        spec="$source ($version$suffix+~lto)"
+        spec="$source ($version$suffix+~optimized)"
         (
             cd $source
-            if [ -e ${source}_$version$suffix+~lto_amd64.changes ]; then
+            if [ -e ${source}_$(echo "$version" | sed 's/^.*://')$suffix+~optimized_amd64.changes ]; then
                 echo "Changes file for $spec already exists, skipping"
                 continue
             fi
             echo "Building $spec..."
+			env DEB_BUILD_OPTIONS="optimize=+lto" DEB_CFLAGS_PREPEND="-march=native" DEB_CXXFLAGS_PREPEND="-march=native" \
             sbuild \
                 --no-arch-all \
                 --binNMU-changelog="$(
@@ -46,7 +47,8 @@ cd lto
 $spec unstable; urgency=low, binary-only=yes
 
   * Binary-only non-maintainer upload for amd64; no source changes.
-  * Build using LTO-enabled dpkg
+  * Build using LTO
+  * Build using -march=native
 
  -- Victor Westerhuis <victor@westerhu.is>  $(date -R)
 _EOF
