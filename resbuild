@@ -31,16 +31,17 @@ cd lto
             .[]' |
     while read -r source version suffix; do
         mkdir -p $source
-        spec="$source ($version$suffix+~optimized)"
+        local_suffix="+~optimized"
+        spec="$source ($version$suffix$local_suffix)"
         (
             cd $source
-            if [ -e ${source}_$(echo "$version" | sed 's/^.*://')$suffix+~optimized_amd64.changes ]; then
+            if [ -e ${source}_$(echo "$version" | sed 's/^.*://')${suffix}${local_suffix}_amd64.changes ]; then
                 echo "Changes file for $spec already exists, skipping"
                 continue
             fi
             echo "Building $spec..."
-			env DEB_BUILD_OPTIONS="optimize=+lto" DEB_CFLAGS_PREPEND="-march=native" DEB_CXXFLAGS_PREPEND="-march=native" \
-            sbuild \
+            env DEB_BUILD_OPTIONS="optimize=+lto" DEB_CFLAGS_PREPEND="-march=native" DEB_CXXFLAGS_PREPEND="-march=native" \
+                sbuild \
                 --no-arch-all \
                 --binNMU-changelog="$(
                     cat << _EOF
@@ -57,6 +58,7 @@ _EOF
                 --uploader="Victor Westerhuis <victor@westerhu.is>" \
                 --profiles=noudeb \
                 --dist=unstable \
+                --no-run-lintian \
                 ${source}_${version} && echo "Successfully built $spec" || echo "Failed to build $spec"
         )
     done
